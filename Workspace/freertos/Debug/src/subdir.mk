@@ -32,7 +32,7 @@ C_DEPS += \
 src/%.o: ../src/%.c src/subdir.mk
 	@echo 'Building file: $<'
 	@echo 'Invoking: MCU C Compiler'
-	arm-none-eabi-gcc -D__REDLIB__ -DDEBUG -D__CODE_RED -DCORE_M3 -D__USE_LPCOPEN -D__LPC17XX__ -I"C:\Users\pdcjo\OneDrive\Documentos\GitHub\Tp-integrador-td3\Workspace\freertos\inc" -I"C:\Users\pdcjo\OneDrive\Documentos\GitHub\Tp-integrador-td3\Workspace\lpc_board_nxp_lpcxpresso_1769\inc" -I"C:\Users\pdcjo\OneDrive\Documentos\GitHub\Tp-integrador-td3\Workspace\lpc_chip_175x_6x\inc" -I"C:\Users\pdcjo\OneDrive\Documentos\GitHub\Tp-integrador-td3\Workspace\freertos\inc" -O0 -fno-common -g3 -Wall -c -fmessage-length=0 -fno-builtin -ffunction-sections -fdata-sections -fmerge-constants -fmacro-prefix-map="$(<D)/"= -mcpu=cortex-m3 -mthumb -fstack-usage -specs=redlib.specs -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
+	arm-none-eabi-gcc -D__REDLIB__ -DDEBUG -D__CODE_RED -DCORE_M3 -D__USE_LPCOPEN -D__LPC17XX__ -I"E:\UTN\TDIII\Tp-integrador-td3\Workspace\freertos\inc" -I"E:\UTN\TDIII\Tp-integrador-td3\Workspace\lpc_board_nxp_lpcxpresso_1769\inc" -I"E:\UTN\TDIII\Tp-integrador-td3\Workspace\lpc_chip_175x_6x\inc" -I"E:\UTN\TDIII\Tp-integrador-td3\Workspace\freertos\inc" -O0 -fno-common -g3 -Wall -c -fmessage-length=0 -fno-builtin -ffunction-sections -fdata-sections -fmerge-constants -fmacro-prefix-map="$(<D)/"= -mcpu=cortex-m3 -mthumb -fstack-usage -specs=redlib.specs -MMD -MP -MF"$(@:%.o=%.d)" -MT"$(@:%.o=%.o)" -MT"$(@:%.o=%.d)" -o "$@" "$<"
 	@echo 'Finished building: $<'
 	@echo ' '
 
