@@ -1,5 +1,5 @@
 /*
- * En este ejemplo se puede observar la inversion de prioridades.
+ * En este ejemplo se puede observar el deadlock.
  *
  */
 
@@ -72,11 +72,7 @@ static void Task1(void *pvParameters){
 		/* Aseguro el recurso ADC tomando el semaforo */
 		xSemaphoreTake(mutex, portMAX_DELAY);
 
-		/* Lee el valor del ADC y lo guarda en la variable dataADC */
-		Chip_ADC_ReadValue(LPC_ADC, ADC_CH0, &dataADC);
-
-		/* Escribo el valor en la cola */
-		xQueueSendToBack(queueADC,&dataADC,portMAX_DELAY);
+		xQueueReceive(queueADC,&dataADC,portMAX_DELAY);
 
 		/* Libero el semaforo una vez que termine de utilizar el ADC */
 		xSemaphoreGive(mutex);
@@ -89,9 +85,6 @@ static void Task2(void *pvParameters){
 
 	uint16_t dataADC;
 
-	/*Fuerzo la inversion de prioridades*/
-	vTaskDelay(1000/portTICK_RATE_MS);
-
 	while(1){
 
 		/* Aseguro el recurso ADC tomando el semaforo */
@@ -103,26 +96,10 @@ static void Task2(void *pvParameters){
 		/* Escribo el valor en la cola */
 		xQueueSendToBack(queueADC,&dataADC,portMAX_DELAY);
 
-		/* Libero el semaforo una vez que termine de utilizar el ADC */
-		xSemaphoreGive(mutex);
 		}
 
 	}
 
-
-static void Task3(void *pvParameters){
-
-	uint16_t dataADC;
-
-	/*Fuerzo la inversion de prioridades*/
-	vTaskDelay(500/portTICK_RATE_MS);
-
-	while(1){
-		/* Recibo el valor de la cola */
-		xQueueReceive(queueADC,&dataADC,portMAX_DELAY);
-	}
-
-}
 
 
 /****************************************************************************************************/
@@ -145,11 +122,7 @@ int main(void){
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 	xTaskCreate(Task2, (char *) "",
-	    		configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 3UL),
-	    		(xTaskHandle *) NULL);
-
-	xTaskCreate(Task3, (char *) "",
-	    		configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 2UL),
+	    		configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
 	    		(xTaskHandle *) NULL);
 
     /* Inicia el scheduler */
