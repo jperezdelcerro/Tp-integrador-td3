@@ -4,11 +4,14 @@
 #include "semphr.h"
 #include <string.h>
 #include "debounce.h"
+#include "lcd.h"
+//#include <lpc17xx.h>
 
 #define ON false
 #define OFF true
 
 #define PORT 0
+#define PORT1 1
 
 /* CONTROL MATRIZ */
 #define FILA_0 9
@@ -20,6 +23,14 @@
 #define COLUMNA_1 1
 #define COLUMNA_2 18
 #define COLUMNA_3 17
+
+/*LCD*/
+#define R 23
+#define E 24
+#define BIT_0 25
+#define BIT_1 26
+#define BIT_2 30
+#define BIT_3 31
 
 /* LEDS */
 #define LED_SUCCESS 15
@@ -78,6 +89,11 @@ void Configuracion(void){
 	Chip_GPIO_SetPinState(LPC_GPIO, PORT, FILA_2, OFF);
 	Chip_GPIO_SetPinState(LPC_GPIO, PORT, FILA_3, OFF);
 
+	//####### LCD ############
+
+	LCD_SetUp(P0_23,P_NC,P0_24,P_NC,P_NC,P_NC,P_NC,P0_25,P0_26,P1_30,P1_31);
+	LCD_Init(2,16);
+
 }
 
 /* Tarea 1: Blinky del primer led */
@@ -90,6 +106,7 @@ static void Polling(void *pvParameters){
 	bool setearClave = false;
 
 	while(1) {
+
 		Chip_GPIO_SetPinState(LPC_GPIO, PORT, filas[fila], ON);
 		for(int columna = 0; columna < length; columna++) {
 			int noPresionado = Chip_GPIO_GetPinState(LPC_GPIO, PORT, columnas[columna]);
@@ -159,6 +176,17 @@ static void Validation(void *pvParameters) {
 }
 
 
+static void Lcd(void *pvParameters) {
+    char claveIngresada[5];
+
+    while(1) {
+    	LCD_Clear();
+    	LCD_DisplayString("Hola Mundo");
+        }
+}
+
+
+
 int main(void){
 
 	/* Levanta la frecuencia del micro */
@@ -175,6 +203,11 @@ int main(void){
 
     /* Creacion de tareas */
 	xTaskCreate(Validation, (char *) "Validacion",
+    			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
+    			(xTaskHandle *) NULL);
+
+    /* Creacion de tareas */
+	xTaskCreate(Lcd, (char *) "lcd",
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
