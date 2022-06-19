@@ -5,7 +5,7 @@
 #include <string.h>
 #include "debounce.h"
 #include "lcd.h"
-//#include <lpc17xx.h>
+
 
 #define ON false
 #define OFF true
@@ -46,12 +46,14 @@ char matriz[4][4] = {'1','2','3','A',
 					 '*','0','#','D'};
 
 xQueueHandle queue;
+xQueueHandle queueLcd;
 
 char claveInput[5];
-char clave[5] = "1234\0";
+char *textoDisplay = claveInput;
+char clave[5] = "1111\0";
 
 void strclean(char *str) {
-	for(int i = 0; i < strlen(str); i++) {
+	for(int i = 0; i < 4; i++) {
 		str[i] = '\0';
 	}
 }
@@ -127,12 +129,14 @@ static void Polling(void *pvParameters){
 						}
 						break;
 					case 'C':
+						textoDisplay = clave;
 						setearClave = true;
 						strclean(clave);
 						index = 0;
 						break;
 					case 'D':
 						if (setearClave && strlen(clave) == 4) {
+							textoDisplay = claveInput;
 							setearClave = false;
 							index = 0;
 						}
@@ -140,7 +144,7 @@ static void Polling(void *pvParameters){
 					default: ;
 						char *escribirEn = setearClave ? clave : claveInput;
 						if (strlen(escribirEn) <= 4) {
-							claveInput[index] = myChar;
+							escribirEn[index] = myChar;
 							index++;
 						}
 						break;
@@ -159,11 +163,13 @@ static void Polling(void *pvParameters){
 
 static void Validation(void *pvParameters) {
     char claveIngresada[5];
-
+    int isValid = 1;
     while(1) {
         xQueueReceive(queue, &claveIngresada, portMAX_DELAY);
-        claveIngresada[4] = '\0';
-        if (strcmp(claveIngresada, clave) == 0) {
+     //   claveIngresada[4] = '\0';
+        isValid = strcmp(claveIngresada, clave) == 0;
+    	xQueueSendToBack(queueLcd, &isValid, portMAX_DELAY);
+        if (isValid) {
         	//clave correcta!!
         	for(int i = 0; i < 3; i++) {
 				Chip_GPIO_SetPinState(LPC_GPIO, PORT, led1_pin, ON);
@@ -177,25 +183,36 @@ static void Validation(void *pvParameters) {
 
 
 static void Lcd(void *pvParameters) {
-    uint8_t claveInput[] = "abcd";
-
+	int isValid;
+	LCD_Clear();
     while(1) {
-    	xQueueReceive(queue, &claveInput, portMAX_DELAY);
-    	LCD_Clear();
-    	LCD_DisplayString(claveInput);
-    	vTaskDelay(1000/portTICK_RATE_MS);
-        }
+    	if(xQueueReceive(queueLcd, &isValid, 200/portTICK_RATE_MS)){
+    		if(isValid){
+        		LCD_DisplayString("Clave Correcta");
+    		}else{
+    			LCD_DisplayString("Clave Incorrecta");
+    		}
+    		vTaskDelay(2000/portTICK_RATE_MS);
+        	LCD_Clear();
+    	}else{
+        	LCD_DisplayString(textoDisplay);
+    		vTaskDelay(1000/portTICK_RATE_MS);
+        	LCD_Clear();
+    	}
+    }
 }
 
 static void Add(void *pvParameters) {
-    char claveIngresada[5];
-    uint8_t claveInput[] = "abcd";
+	int isValid;
     while(1) {
+    	for(int i=0; i<5;i++){
+    		claveInput[i] = '1';
+    		vTaskDelay(1500/portTICK_RATE_MS);
+    	}
     	xQueueSendToBack(queue, &claveInput, portMAX_DELAY);
-    	vTaskDelay(500/portTICK_RATE_MS);
-        }
+    	strclean(claveInput);
+    }
 }
-
 
 
 int main(void){
@@ -206,6 +223,7 @@ int main(void){
 	/* Configuración inicial del micro */
 	Configuracion();
 	queue = xQueueCreate(1, sizeof(char[4]));
+	queueLcd = xQueueCreate(1, sizeof(int));
 
     /* Creacion de tareas */
 	xTaskCreate(Polling, (char *) "Polling",
@@ -222,9 +240,10 @@ int main(void){
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
+    /* Creacion de tareas */
 	xTaskCreate(Add, (char *) "add",
-	    			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
-	    			(xTaskHandle *) NULL);
+    			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
+    			(xTaskHandle *) NULL);
 
     /* Inicia el scheduler */
 	vTaskStartScheduler();
