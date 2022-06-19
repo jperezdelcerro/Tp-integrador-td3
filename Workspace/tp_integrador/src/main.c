@@ -177,11 +177,22 @@ static void Validation(void *pvParameters) {
 
 
 static void Lcd(void *pvParameters) {
-    char claveIngresada[5];
+    uint8_t claveInput[] = "abcd";
 
     while(1) {
+    	xQueueReceive(queue, &claveInput, portMAX_DELAY);
     	LCD_Clear();
-    	LCD_DisplayString("Hola Mundo");
+    	LCD_DisplayString(claveInput);
+    	vTaskDelay(1000/portTICK_RATE_MS);
+        }
+}
+
+static void Add(void *pvParameters) {
+    char claveIngresada[5];
+    uint8_t claveInput[] = "abcd";
+    while(1) {
+    	xQueueSendToBack(queue, &claveInput, portMAX_DELAY);
+    	vTaskDelay(500/portTICK_RATE_MS);
         }
 }
 
@@ -210,6 +221,10 @@ int main(void){
 	xTaskCreate(Lcd, (char *) "lcd",
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
+
+	xTaskCreate(Add, (char *) "add",
+	    			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
+	    			(xTaskHandle *) NULL);
 
     /* Inicia el scheduler */
 	vTaskStartScheduler();
