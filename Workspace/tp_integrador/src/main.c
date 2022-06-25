@@ -2,10 +2,10 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include "lcd.h"
 #include <string.h>
 #include "debounce.h"
-#include "lcd.h"
-
+#include "memory.h"
 
 #define ON false
 #define OFF true
@@ -45,15 +45,14 @@ char matriz[4][4] = {'1','2','3','A',
 					 '7','8','9','C',
 					 '*','0','#','D'};
 
-xQueueHandle queue;
-xQueueHandle queueLcd;
+xQueueHandle queue, queueLcd, queueMem;
 
-char claveInput[5];
+char claveInput[4];
 char *textoDisplay = claveInput;
-char clave[5] = "1111\0";
+char clave[4];
 
 void strclean(char *str) {
-	for(int i = 0; i < 4; i++) {
+	for(int i = 3; i > 0; i--) {
 		str[i] = '\0';
 	}
 }
@@ -61,7 +60,6 @@ void strclean(char *str) {
 void Configuracion(void){
 
 	//####### GPIO #########
-
 	Chip_GPIO_Init(LPC_GPIO);
 
 	//####### LEDS #########
@@ -93,9 +91,16 @@ void Configuracion(void){
 
 	//####### LCD ############
 
-	LCD_SetUp(P0_23,P_NC,P0_24,P_NC,P_NC,P_NC,P_NC,P0_25,P0_26,P1_30,P1_31);
+	LCD_SetUp(P0_15,P_NC,P0_16,P_NC,P_NC,P_NC,P_NC,P0_23,P0_24,P0_25,P0_26);
 	LCD_Init(2,16);
 
+	//####### MEMORIA ########
+	char *value = "1111";
+	writeOnFlash(value);
+	value = "1221";
+	writeOnFlash(value);
+	char *read = readMemory();
+	strcpy(clave, read);
 }
 
 /* Tarea 1: Blinky del primer led */
@@ -129,14 +134,18 @@ static void Polling(void *pvParameters){
 						}
 						break;
 					case 'C':
-						textoDisplay = clave;
+						textoDisplay = clave[0];
 						setearClave = true;
 						strclean(clave);
 						index = 0;
 						break;
 					case 'D':
 						if (setearClave && strlen(clave) == 4) {
-							textoDisplay = claveInput;
+//							char *save = clave;
+//							writeOnFlash(save);
+//							char *read = readMemory();
+							xQueueSendToBack(queue, &claveInput, portMAX_DELAY);
+							textoDisplay = claveInput[0];
 							setearClave = false;
 							index = 0;
 						}
@@ -166,7 +175,7 @@ static void Validation(void *pvParameters) {
     int isValid = 1;
     while(1) {
         xQueueReceive(queue, &claveIngresada, portMAX_DELAY);
-     //   claveIngresada[4] = '\0';
+        claveIngresada[4] = '\0';
         isValid = strcmp(claveIngresada, clave) == 0;
     	xQueueSendToBack(queueLcd, &isValid, portMAX_DELAY);
         if (isValid) {
@@ -185,6 +194,7 @@ static void Validation(void *pvParameters) {
 static void Lcd(void *pvParameters) {
 	int isValid;
 	LCD_Clear();
+	char display[4];
     while(1) {
     	if(xQueueReceive(queueLcd, &isValid, 200/portTICK_RATE_MS)){
     		if(isValid){
@@ -195,25 +205,23 @@ static void Lcd(void *pvParameters) {
     		vTaskDelay(2000/portTICK_RATE_MS);
         	LCD_Clear();
     	}else{
-        	LCD_DisplayString(textoDisplay);
+    	    strcpy(display, textoDisplay);
+        	LCD_DisplayString(display);
+//        	LCD_DisplayString("Hola!");
     		vTaskDelay(1000/portTICK_RATE_MS);
         	LCD_Clear();
     	}
     }
 }
 
-static void Add(void *pvParameters) {
-	int isValid;
-    while(1) {
-    	for(int i=0; i<5;i++){
-    		claveInput[i] = '1';
-    		vTaskDelay(1500/portTICK_RATE_MS);
-    	}
-    	xQueueSendToBack(queue, &claveInput, portMAX_DELAY);
-    	strclean(claveInput);
+static void writeToMem(void *pvParameters) {
+    char *value, *read;
+	while(1) {
+		xQueueReceive(queueMem, &value, portMAX_DELAY);
+    	writeOnFlash(value);
+    	read = readMemory();
     }
 }
-
 
 int main(void){
 
@@ -222,8 +230,10 @@ int main(void){
 
 	/* Configuración inicial del micro */
 	Configuracion();
+
 	queue = xQueueCreate(1, sizeof(char[4]));
 	queueLcd = xQueueCreate(1, sizeof(int));
+	queueMem = xQueueCreate(1, sizeof(char[4]));
 
     /* Creacion de tareas */
 	xTaskCreate(Polling, (char *) "Polling",
@@ -240,8 +250,7 @@ int main(void){
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
-    /* Creacion de tareas */
-	xTaskCreate(Add, (char *) "add",
+	xTaskCreate(writeToMem, (char *) "Guardar",
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
@@ -252,4 +261,3 @@ int main(void){
 
     return 0;
 }
-
