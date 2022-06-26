@@ -48,23 +48,19 @@ char matriz[4][4] = {'1','2','3','A',
 xQueueHandle queueValidation, queueLcd, queueMem;
 
 char claveInput[4];
-char *textoDisplay = claveInput;
+//char *textoDisplay = claveInput;
 char clave[4];
+bool setearClave = false;
 
 void strclean(char *str) {
-	for(int i = 3; i > 0; i--) {
+	for(int i = 3; i >= 0; i--) {
 		str[i] = '\0';
 	}
 }
 
 void writeFcknMem(char text[4]) {
 	char *value = text;
-	int l = strlen(text);
 	writeOnFlash(value);
-//	char *read = readMemory();
-//	for(int i = 0; i < 4; i++) {
-//		clave[i] = *(read + i);
-//	}
 }
 
 void Configuracion(void){
@@ -121,7 +117,6 @@ static void Polling(void *pvParameters){
 	int columnas[4] = {COLUMNA_0, COLUMNA_1, COLUMNA_2, COLUMNA_3};
 	int fila = 0;
 	int index = 0;
-	bool setearClave = false;
 
 	while(1) {
 		Chip_GPIO_SetPinState(LPC_GPIO, PORT, filas[fila], ON);
@@ -144,7 +139,7 @@ static void Polling(void *pvParameters){
 						}
 						break;
 					case 'C':
-						textoDisplay = clave[0];
+//						textoDisplay = clave;
 						setearClave = true;
 						strclean(clave);
 						index = 0;
@@ -152,7 +147,7 @@ static void Polling(void *pvParameters){
 					case 'D':
 						if (setearClave && strlen(clave) == 4) {
 							xQueueSendToBack(queueMem, &clave, portMAX_DELAY);
-							textoDisplay = claveInput[0];
+//							textoDisplay = claveInput;
 							setearClave = false;
 							index = 0;
 						}
@@ -212,7 +207,14 @@ static void Lcd(void *pvParameters) {
     		vTaskDelay(2000/portTICK_RATE_MS);
         	LCD_Clear();
     	}else{
-        	LCD_DisplayString("Hola!");
+    		char *textoDisplay = setearClave ? clave : claveInput;
+//    		if(setearClave) {
+//				strcpy(display, clave);
+//    		} else {
+//				strcpy(display, claveInput);
+//    		}
+    		display[4] = '\0';
+        	LCD_DisplayString(display);
     		vTaskDelay(1000/portTICK_RATE_MS);
         	LCD_Clear();
     	}
