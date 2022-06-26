@@ -213,6 +213,7 @@ static void Lcd(void *pvParameters) {
 //    		} else {
 //				strcpy(display, claveInput);
 //    		}
+    		strcpy(display, claveInput);
     		display[4] = '\0';
         	LCD_DisplayString(display);
     		vTaskDelay(1000/portTICK_RATE_MS);
