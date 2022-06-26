@@ -45,7 +45,7 @@ char matriz[4][4] = {'1','2','3','A',
 					 '7','8','9','C',
 					 '*','0','#','D'};
 
-xQueueHandle queue, queueLcd, queueMem;
+xQueueHandle queueValidation, queueLcd, queueMem;
 
 char claveInput[4];
 char *textoDisplay = claveInput;
@@ -55,6 +55,16 @@ void strclean(char *str) {
 	for(int i = 3; i > 0; i--) {
 		str[i] = '\0';
 	}
+}
+
+void writeFcknMem(char text[4]) {
+	char *value = text;
+	int l = strlen(text);
+	writeOnFlash(value);
+//	char *read = readMemory();
+//	for(int i = 0; i < 4; i++) {
+//		clave[i] = *(read + i);
+//	}
 }
 
 void Configuracion(void){
@@ -95,12 +105,13 @@ void Configuracion(void){
 	LCD_Init(2,16);
 
 	//####### MEMORIA ########
-	char *value = "1111";
-	writeOnFlash(value);
-	value = "1221";
-	writeOnFlash(value);
+//	char *value = "1111";
+//	writeOnFlash(value);
+//	writeFcknMem("1111");
 	char *read = readMemory();
-	strcpy(clave, read);
+	for(int i = 0; i < 4; i++) {
+		clave[i] = *(read + i);
+	}
 }
 
 /* Tarea 1: Blinky del primer led */
@@ -113,7 +124,6 @@ static void Polling(void *pvParameters){
 	bool setearClave = false;
 
 	while(1) {
-
 		Chip_GPIO_SetPinState(LPC_GPIO, PORT, filas[fila], ON);
 		for(int columna = 0; columna < length; columna++) {
 			int noPresionado = Chip_GPIO_GetPinState(LPC_GPIO, PORT, columnas[columna]);
@@ -122,7 +132,7 @@ static void Polling(void *pvParameters){
 				switch (myChar) {
 					case 'A':
 						if (!setearClave) {
-							xQueueSendToBack(queue, &claveInput, portMAX_DELAY);
+							xQueueSendToBack(queueValidation, &claveInput, portMAX_DELAY);
 							strclean(claveInput);
 							index = 0;
 						}
@@ -141,10 +151,7 @@ static void Polling(void *pvParameters){
 						break;
 					case 'D':
 						if (setearClave && strlen(clave) == 4) {
-//							char *save = clave;
-//							writeOnFlash(save);
-//							char *read = readMemory();
-							xQueueSendToBack(queue, &claveInput, portMAX_DELAY);
+							xQueueSendToBack(queueMem, &clave, portMAX_DELAY);
 							textoDisplay = claveInput[0];
 							setearClave = false;
 							index = 0;
@@ -174,7 +181,7 @@ static void Validation(void *pvParameters) {
     char claveIngresada[5];
     int isValid = 1;
     while(1) {
-        xQueueReceive(queue, &claveIngresada, portMAX_DELAY);
+        xQueueReceive(queueValidation, &claveIngresada, portMAX_DELAY);
         claveIngresada[4] = '\0';
         isValid = strcmp(claveIngresada, clave) == 0;
     	xQueueSendToBack(queueLcd, &isValid, portMAX_DELAY);
@@ -205,9 +212,7 @@ static void Lcd(void *pvParameters) {
     		vTaskDelay(2000/portTICK_RATE_MS);
         	LCD_Clear();
     	}else{
-    	    strcpy(display, textoDisplay);
-        	LCD_DisplayString(display);
-//        	LCD_DisplayString("Hola!");
+        	LCD_DisplayString("Hola!");
     		vTaskDelay(1000/portTICK_RATE_MS);
         	LCD_Clear();
     	}
@@ -215,13 +220,14 @@ static void Lcd(void *pvParameters) {
 }
 
 static void writeToMem(void *pvParameters) {
-    char *value, *read;
+    char value[4], *read;
 	while(1) {
 		xQueueReceive(queueMem, &value, portMAX_DELAY);
-    	writeOnFlash(value);
-    	read = readMemory();
+		value[4] = '\0';
+		writeFcknMem(value);
     }
 }
+
 
 int main(void){
 
@@ -231,7 +237,7 @@ int main(void){
 	/* Configuración inicial del micro */
 	Configuracion();
 
-	queue = xQueueCreate(1, sizeof(char[4]));
+	queueValidation = xQueueCreate(1, sizeof(char[4]));
 	queueLcd = xQueueCreate(1, sizeof(int));
 	queueMem = xQueueCreate(1, sizeof(char[4]));
 
@@ -240,18 +246,16 @@ int main(void){
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
-    /* Creacion de tareas */
-	xTaskCreate(Validation, (char *) "Validacion",
+    xTaskCreate(Validation, (char *) "Validacion",
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
-    /* Creacion de tareas */
 	xTaskCreate(Lcd, (char *) "lcd",
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
 	xTaskCreate(writeToMem, (char *) "Guardar",
-    			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
+    			configMINIMAL_STACK_SIZE, NULL, ((tskIDLE_PRIORITY + 1UL)| portPRIVILEGE_BIT),
     			(xTaskHandle *) NULL);
 
     /* Inicia el scheduler */
