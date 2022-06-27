@@ -138,59 +138,53 @@ static void Polling(void *pvParameters){
 		for(int columna = 0; columna < length; columna++) {
 			int noPresionado = Chip_GPIO_GetPinState(LPC_GPIO, PORT, columnas[columna]);
 			if (!noPresionado && debounce(fila, columna)) {
-
 				char myChar = matriz[fila][columna];
+
 				switch (myChar) {
 					case 'A':
 						if (strlen(claveInput) == ULTIMA) {
 							if (strcmp(claveInput, clave) == 0) {
-							        	sendToLcd("Clave Correcta");
-
-							        }else{
-							        	sendToLcd("ClaveIncorrecta");
-							        }
-						}else{
+								sendToLcd("Clave Correcta");
+							}else{
+								sendToLcd("ClaveIncorrecta");
+							}
+						} else{
 							sendToLcd("Clave muy corta");
 						}
-
 						strclean(claveInput);
 						index=0;
-
 						break;
-					case 'B':
 
+					case 'B':
 						sendToLcd("");
 						strclean(claveInput);
 						index = 0;
-
 						break;
+
 					case 'C':
 						if (strlen(claveInput) == ULTIMA) {
 							xQueueSendToBack(queueMem, &claveInput, portMAX_DELAY);
 							sendToLcd("Clave guardada");
-						}else{
+						} else {
 							sendToLcd("Clave muy corta");
 						}
-
 						strclean(claveInput);
 						index=0;
-
-
 						break;
+
 					default: ;
 						if (index <  ULTIMA) {
 							claveInput[index] = myChar;
 							claveInput[index + 1] = '\0';
 							index++;
 							sendToLcd(claveInput);
-							}
-
+						}
 						if (index == LEN) {
 							strclean(claveInput);
 							index=0;
-							}
-
+						}
 						break;
+
 				}
 				break;
 

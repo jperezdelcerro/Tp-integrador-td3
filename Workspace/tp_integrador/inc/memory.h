@@ -5,6 +5,5 @@
 #include <stdbool.h>
 
 bool grabar_flash_sector_16(uint8_t *data, uint16_t length);
-bool readAndCheck(uint32_t *value);
 bool writeOnFlash(char *dataToWrite);
-char* read();
+char* readMemory();

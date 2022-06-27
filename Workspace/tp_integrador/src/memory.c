@@ -49,19 +49,3 @@ bool grabar_flash_sector_16(uint8_t *data, uint16_t length){
 		return false;
 	}
 }
-
-bool readAndCheck(uint32_t *dataToCheck){
-
-	uint8_t * punteroFLASH, variableFLASH[4], variableUSER[4];
-
-	punteroFLASH=IMG_START_SECTOR;
-
-	for (uint16_t i=0; i<4; i++){
-		variableFLASH[i]=*(punteroFLASH+i);
-		variableUSER[i]=(*(dataToCheck+i)+48);
-	}
-	if(variableFLASH[0]==variableUSER[0]&&variableFLASH[1]==variableUSER[1]&&variableFLASH[2]==variableUSER[2]&&variableFLASH[3]==variableUSER[3])
-		return true;
-	return false;
-
-}
