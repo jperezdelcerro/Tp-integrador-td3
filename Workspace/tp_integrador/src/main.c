@@ -45,22 +45,39 @@ char matriz[4][4] = {'1','2','3','A',
 					 '7','8','9','C',
 					 '*','0','#','D'};
 
+/* POS CLAVE*/
+#define LEN 5
+#define ULTIMA 4
+
+char claveInput[LEN];
+char clave[LEN];
+
+/* COLAS */
 xQueueHandle queueValidation, queueLcd, queueMem;
 
-char claveInput[4];
-//char *textoDisplay = claveInput;
-char clave[4];
-bool setearClave = false;
+
+/* FUNCIONES */
 
 void strclean(char *str) {
-	for(int i = 3; i >= 0; i--) {
-		str[i] = '\0';
+	strncpy(str,"",strlen(str));
+}
+
+void writeToMemory(char text[LEN]) {
+	char *value = text;
+	writeOnFlash(value);
+}
+
+
+void readFromMemory(void){
+	char *read = readMemory();
+	for(int i = 0; i < LEN; i++) {
+		clave[i] = *(read + i);
 	}
 }
 
-void writeFcknMem(char text[4]) {
-	char *value = text;
-	writeOnFlash(value);
+void sendToLcd(char text[16]){
+// Para no tener que guardar en text
+	xQueueSendToBack(queueLcd, text, portMAX_DELAY);
 }
 
 void Configuracion(void){
@@ -101,16 +118,14 @@ void Configuracion(void){
 	LCD_Init(2,16);
 
 	//####### MEMORIA ########
-//	char *value = "1111";
-//	writeOnFlash(value);
-//	writeFcknMem("1111");
-	char *read = readMemory();
-	for(int i = 0; i < 4; i++) {
-		clave[i] = *(read + i);
-	}
+
+	readFromMemory();
 }
 
-/* Tarea 1: Blinky del primer led */
+
+/* TAREAS */
+
+/* Tarea 1: Pooling de teclado y logica */
 static void Polling(void *pvParameters){
 	int length = 4;
 	int filas[4] = {FILA_0, FILA_1, FILA_2, FILA_3};
@@ -123,44 +138,63 @@ static void Polling(void *pvParameters){
 		for(int columna = 0; columna < length; columna++) {
 			int noPresionado = Chip_GPIO_GetPinState(LPC_GPIO, PORT, columnas[columna]);
 			if (!noPresionado && debounce(fila, columna)) {
+
 				char myChar = matriz[fila][columna];
 				switch (myChar) {
 					case 'A':
-						if (!setearClave) {
-							xQueueSendToBack(queueValidation, &claveInput, portMAX_DELAY);
-							strclean(claveInput);
-							index = 0;
+						if (strlen(claveInput) == ULTIMA) {
+							if (strcmp(claveInput, clave) == 0) {
+							        	sendToLcd("Clave Correcta");
+
+							        }else{
+							        	sendToLcd("ClaveIncorrecta");
+							        }
+						}else{
+							sendToLcd("Clave muy corta");
 						}
+
+						strclean(claveInput);
+						index=0;
+
 						break;
 					case 'B':
-						if (!setearClave) {
-							strclean(claveInput);
-							index = 0;
-						}
+
+						sendToLcd("");
+						strclean(claveInput);
+						index = 0;
+
 						break;
 					case 'C':
-//						textoDisplay = clave;
-						setearClave = true;
-						strclean(clave);
-						index = 0;
-						break;
-					case 'D':
-						if (setearClave && strlen(clave) == 4) {
-							xQueueSendToBack(queueMem, &clave, portMAX_DELAY);
-//							textoDisplay = claveInput;
-							setearClave = false;
-							index = 0;
+						if (strlen(claveInput) == ULTIMA) {
+							xQueueSendToBack(queueMem, &claveInput, portMAX_DELAY);
+							sendToLcd("Clave guardada");
+						}else{
+							sendToLcd("Clave muy corta");
 						}
+
+						strclean(claveInput);
+						index=0;
+
+
 						break;
 					default: ;
-						char *escribirEn = setearClave ? clave : claveInput;
-						if (strlen(escribirEn) <= 4) {
-							escribirEn[index] = myChar;
+						if (index <  ULTIMA) {
+							claveInput[index] = myChar;
+							claveInput[index + 1] = '\0';
 							index++;
-						}
+							sendToLcd(claveInput);
+							}
+
+						if (index == LEN) {
+							strclean(claveInput);
+							index=0;
+							}
+
 						break;
 				}
 				break;
+
+
 			} else {
 				setHigh(fila, columna);
 			}
@@ -172,62 +206,29 @@ static void Polling(void *pvParameters){
 	}
 }
 
-static void Validation(void *pvParameters) {
-    char claveIngresada[5];
-    int isValid = 1;
-    while(1) {
-        xQueueReceive(queueValidation, &claveIngresada, portMAX_DELAY);
-        claveIngresada[4] = '\0';
-        isValid = strcmp(claveIngresada, clave) == 0;
-    	xQueueSendToBack(queueLcd, &isValid, portMAX_DELAY);
-        if (isValid) {
-        	//clave correcta!!
-        	for(int i = 0; i < 3; i++) {
-				Chip_GPIO_SetPinState(LPC_GPIO, PORT, led1_pin, ON);
-				vTaskDelay(200/portTICK_RATE_MS);
-				Chip_GPIO_SetPinState(LPC_GPIO, PORT, led1_pin, OFF);
-				vTaskDelay(200/portTICK_RATE_MS);
-        	}
-        }
-    }
-}
 
-
+/* Tarea 2: escritura en LCD */
 static void Lcd(void *pvParameters) {
-	int isValid;
 	LCD_Clear();
-	char display[4];
+	char textToDisplay[16];
     while(1) {
-    	if(xQueueReceive(queueLcd, &isValid, 200/portTICK_RATE_MS)){
-    		if(isValid){
-        		LCD_DisplayString("Clave Correcta");
-    		}else{
-    			LCD_DisplayString("Clave Incorrecta");
-    		}
-    		vTaskDelay(2000/portTICK_RATE_MS);
-        	LCD_Clear();
-    	}else{
-    		char *textoDisplay = setearClave ? clave : claveInput;
-//    		if(setearClave) {
-//				strcpy(display, clave);
-//    		} else {
-//				strcpy(display, claveInput);
-//    		}
-    		strcpy(display, claveInput);
-    		display[4] = '\0';
-        	LCD_DisplayString(display);
-    		vTaskDelay(1000/portTICK_RATE_MS);
-        	LCD_Clear();
-    	}
+
+    	strclean(textToDisplay);
+    	xQueueReceive(queueLcd, &textToDisplay, portMAX_DELAY);
+        LCD_Clear();
+    	LCD_DisplayString(textToDisplay);
     }
 }
 
-static void writeToMem(void *pvParameters) {
-    char value[4], *read;
+
+
+static void EscribirEnMemoria(void *pvParameters) {
+    char nuevaClave[LEN];
 	while(1) {
-		xQueueReceive(queueMem, &value, portMAX_DELAY);
-		value[4] = '\0';
-		writeFcknMem(value);
+		strclean(nuevaClave);
+		xQueueReceive(queueMem, &nuevaClave, portMAX_DELAY);
+		writeToMemory(nuevaClave);
+		strcpy(clave, nuevaClave); //actualizamos sin leer en tiempo de ejecucion
     }
 }
 
@@ -240,24 +241,20 @@ int main(void){
 	/* Configuración inicial del micro */
 	Configuracion();
 
-	queueValidation = xQueueCreate(1, sizeof(char[4]));
-	queueLcd = xQueueCreate(1, sizeof(int));
+	/* Creacion de colas */
+	queueLcd = xQueueCreate(1, sizeof(char[16]));
 	queueMem = xQueueCreate(1, sizeof(char[4]));
 
     /* Creacion de tareas */
-	xTaskCreate(Polling, (char *) "Polling",
+	xTaskCreate(Polling, (char *) "Polling teclado y logica",
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
-    xTaskCreate(Validation, (char *) "Validacion",
+	xTaskCreate(Lcd, (char *) "Mostrar en LCD",
     			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
     			(xTaskHandle *) NULL);
 
-	xTaskCreate(Lcd, (char *) "lcd",
-    			configMINIMAL_STACK_SIZE, NULL, (tskIDLE_PRIORITY + 1UL),
-    			(xTaskHandle *) NULL);
-
-	xTaskCreate(writeToMem, (char *) "Guardar",
+	xTaskCreate(EscribirEnMemoria, (char *) "Guardar nueva clave en memoria",
     			configMINIMAL_STACK_SIZE, NULL, ((tskIDLE_PRIORITY + 1UL)| portPRIVILEGE_BIT),
     			(xTaskHandle *) NULL);
 
