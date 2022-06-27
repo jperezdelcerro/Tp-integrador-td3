@@ -11,7 +11,6 @@
 #define OFF true
 
 #define PORT 0
-#define PORT1 1
 
 /* CONTROL MATRIZ */
 #define FILA_0 9
@@ -24,23 +23,13 @@
 #define COLUMNA_2 18
 #define COLUMNA_3 17
 
-/*LCD*/
-#define R 23
-#define E 24
-#define BIT_0 25
-#define BIT_1 26
-#define BIT_2 30
-#define BIT_3 31
-
 /* LEDS */
-#define LED_SUCCESS 15
-#define LED_FAILURE 16
 #define led1_pin	22
 
 /* TIME */
 #define POLLING 50/portTICK_RATE_MS
 
-char matriz[4][4] = {'1','2','3','A',
+const char matriz[4][4] = {'1','2','3','A',
 					 '4','5','6','B',
 					 '7','8','9','C',
 					 '*','0','#','D'};
@@ -86,14 +75,9 @@ void Configuracion(void){
 	Chip_GPIO_Init(LPC_GPIO);
 
 	//####### LEDS #########
-
-	Chip_GPIO_SetPinDIROutput(LPC_GPIO, PORT, LED_SUCCESS);
-	Chip_GPIO_SetPinDIROutput(LPC_GPIO, PORT, LED_FAILURE);
 	Chip_GPIO_SetPinDIROutput(LPC_GPIO, PORT, led1_pin);
 
 	Chip_GPIO_SetPinState(LPC_GPIO, PORT, led1_pin, OFF);
-	Chip_GPIO_SetPinState(LPC_GPIO, PORT, LED_SUCCESS, OFF);
-	Chip_GPIO_SetPinState(LPC_GPIO, PORT, LED_FAILURE, OFF);
 
 	//####### TECLADO #########
 
