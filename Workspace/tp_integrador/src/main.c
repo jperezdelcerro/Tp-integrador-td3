@@ -221,7 +221,7 @@ static void Lcd(void *pvParameters) {
 }
 
 
-
+/* Tarea 3: escritura en memoria y actualizacion de la vaiable global */
 static void EscribirEnMemoria(void *pvParameters) {
     char nuevaClave[LEN];
 	while(1) {
